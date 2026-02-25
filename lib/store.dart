@@ -14,6 +14,10 @@ class PartyStore extends ChangeNotifier {
   List<Party> parties = [];
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
   String? lastSyncError;
+  bool isInitialLoading = false;
+  bool isSyncing = false;
+  bool isActionLoading = false;
+  String? loadingAction;
 
   PartyStore._(this.prefs, this.firestore);
 
@@ -26,7 +30,11 @@ class PartyStore extends ChangeNotifier {
     }
 
     final s = PartyStore._(prefs, firestore);
+    s.isInitialLoading = true;
+    s.notifyListeners();
     await s._loadInitial();
+    s.isInitialLoading = false;
+    s.notifyListeners();
     s._startRemoteSync();
     return s;
   }
@@ -53,6 +61,8 @@ class PartyStore extends ChangeNotifier {
   }
 
   Future<void> _loadRemote() async {
+    isSyncing = true;
+    notifyListeners();
     try {
       final snapshot = await _partiesCollection!.get();
       parties = snapshot.docs.map((d) {
@@ -64,6 +74,9 @@ class PartyStore extends ChangeNotifier {
       lastSyncError = null;
     } catch (e) {
       lastSyncError = 'Cloud read failed: $e';
+    } finally {
+      isSyncing = false;
+      notifyListeners();
     }
   }
 
@@ -72,6 +85,19 @@ class PartyStore extends ChangeNotifier {
     await _loadRemote();
     await _saveLocal(notify: false);
     notifyListeners();
+  }
+
+  Future<T> _runAction<T>(String action, Future<T> Function() task) async {
+    isActionLoading = true;
+    loadingAction = action;
+    notifyListeners();
+    try {
+      return await task();
+    } finally {
+      isActionLoading = false;
+      loadingAction = null;
+      notifyListeners();
+    }
   }
 
   void _startRemoteSync() {
@@ -138,56 +164,66 @@ class PartyStore extends ChangeNotifier {
   }
 
   Future<bool> addParty(Party p) async {
-    parties.add(p);
-    await _saveLocal();
-    final synced = await _savePartyToRemote(p);
-    if (synced) {
-      await refreshFromCloud();
-    }
-    return synced;
+    return _runAction('publish', () async {
+      parties.add(p);
+      await _saveLocal();
+      final synced = await _savePartyToRemote(p);
+      if (synced) {
+        await refreshFromCloud();
+      }
+      return synced;
+    });
   }
 
   Future<bool> updateParty(Party updated) async {
-    final i = parties.indexWhere((p) => p.id == updated.id);
-    if (i != -1) parties[i] = updated;
-    await _saveLocal();
-    final synced = await _savePartyToRemote(updated);
-    if (synced) {
-      await refreshFromCloud();
-    }
-    return synced;
+    return _runAction('save', () async {
+      final i = parties.indexWhere((p) => p.id == updated.id);
+      if (i != -1) parties[i] = updated;
+      await _saveLocal();
+      final synced = await _savePartyToRemote(updated);
+      if (synced) {
+        await refreshFromCloud();
+      }
+      return synced;
+    });
   }
 
   Future<bool> deleteParty(String id) async {
-    parties.removeWhere((p) => p.id == id);
-    await _saveLocal();
-    final synced = await _deletePartyFromRemote(id);
-    if (synced) {
-      await refreshFromCloud();
-    }
-    return synced;
+    return _runAction('delete', () async {
+      parties.removeWhere((p) => p.id == id);
+      await _saveLocal();
+      final synced = await _deletePartyFromRemote(id);
+      if (synced) {
+        await refreshFromCloud();
+      }
+      return synced;
+    });
   }
 
   Future<bool> register(String partyId, String email, String diet) async {
-    final p = byId(partyId);
-    if (p == null) return false;
-    if (p.registrations.any((r) => r.email.toLowerCase() == email.toLowerCase())) return false;
-    if (p.limit != null && p.registrations.length >= p.limit!) return false;
-    p.registrations.add(Registration(email: email, diet: diet));
-    await _saveLocal();
-    await _savePartyToRemote(p);
-    return true;
+    return _runAction('register', () async {
+      final p = byId(partyId);
+      if (p == null) return false;
+      if (p.registrations.any((r) => r.email.toLowerCase() == email.toLowerCase())) return false;
+      if (p.limit != null && p.registrations.length >= p.limit!) return false;
+      p.registrations.add(Registration(email: email, diet: diet));
+      await _saveLocal();
+      await _savePartyToRemote(p);
+      return true;
+    });
   }
 
   Future<bool> ensurePartyExists(Party party) async {
-    final existing = byId(party.id);
-    if (existing != null) {
-      return true;
-    }
+    return _runAction('save', () async {
+      final existing = byId(party.id);
+      if (existing != null) {
+        return true;
+      }
 
-    parties.add(party);
-    await _saveLocal();
-    return await _savePartyToRemote(party);
+      parties.add(party);
+      await _saveLocal();
+      return await _savePartyToRemote(party);
+    });
   }
 
   String nextId() => const Uuid().v4();

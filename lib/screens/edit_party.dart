@@ -22,6 +22,7 @@ class EditPartyScreen extends StatefulWidget {
 
 class _EditPartyScreenState extends State<EditPartyScreen> {
   final _form = GlobalKey<FormState>();
+  bool _isSubmitting = false;
   late String _title;
   late DateTime _time;
   double _fee = 0;
@@ -223,27 +224,44 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
             height: 52,
             child: ElevatedButton(
               onPressed: () async {
+                if (_isSubmitting) return;
                 if (!_form.currentState!.validate()) return;
                 _form.currentState!.save();
-                final navigator = Navigator.of(context);
                 final messenger = ScaffoldMessenger.of(context);
                 bool synced = true;
-                if (isEdit) {
-                  final old = widget.args!.party;
-                  final updated = Party(id: old.id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64, registrations: old.registrations);
-                  synced = await store.updateParty(updated);
-                } else {
-                  final id = store.nextId();
-                  final created = Party(id: id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64);
-                  synced = await store.addParty(created);
+                setState(() => _isSubmitting = true);
+                try {
+                  if (isEdit) {
+                    final old = widget.args!.party;
+                    final updated = Party(id: old.id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64, registrations: old.registrations);
+                    synced = await store.updateParty(updated);
+                  } else {
+                    final id = store.nextId();
+                    final created = Party(id: id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64);
+                    synced = await store.addParty(created);
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _isSubmitting = false);
+                  }
                 }
-                if (!mounted) return;
+                if (!context.mounted) return;
                 if (store.cloudEnabled && !synced) {
                   messenger.showSnackBar(const SnackBar(content: Text('Saved locally, but cloud sync failed. Check Firestore rules/config.')));
                 }
-                navigator.pop();
+                if (store.cloudEnabled) {
+                  await store.refreshFromCloud();
+                  if (!context.mounted) return;
+                }
+                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
               },
-              child: const Text('Publish'),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                    )
+                  : Text(isEdit ? 'Save' : 'Publish'),
             ),
           ),
         ),

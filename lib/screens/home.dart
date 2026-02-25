@@ -16,6 +16,9 @@ class HomeScreen extends StatelessWidget {
       final parties = store.parties..sort((a, b) => a.time.compareTo(b.time));
       final count = parties.length;
       final headerText = count == 1 ? '1 Party' : '$count PARTIES';
+      if (store.isInitialLoading && parties.isEmpty) {
+        return const Center(child: CircularProgressIndicator());
+      }
       return Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -44,6 +47,11 @@ class HomeScreen extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+          ),
+        if (store.isSyncing)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: LinearProgressIndicator(minHeight: 3),
           ),
         Expanded(
           child: LayoutBuilder(builder: (context, constraints) {
@@ -93,7 +101,7 @@ class HomeScreen extends StatelessWidget {
             child: Align(
             alignment: Alignment.bottomRight,
             child: FloatingActionButton(
-              onPressed: () => Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: null),
+              onPressed: store.isActionLoading ? null : () => Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: null),
               tooltip: 'Create',
               child: const Icon(Icons.add),
             ),
@@ -156,8 +164,7 @@ class _PartyCard extends StatelessWidget {
                 await Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: EditArgs(party: p));
                 return;
               } else if (v == 'share') {
-                final payload = Uri.encodeComponent(base64Url.encode(utf8.encode(encodeParty(p))));
-                final link = Uri.base.replace(fragment: '/party/${p.id}?d=$payload').toString();
+                final link = Uri.base.replace(fragment: '/party/${p.id}').toString();
                 await Clipboard.setData(ClipboardData(text: link));
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link copied')));
@@ -165,16 +172,29 @@ class _PartyCard extends StatelessWidget {
               } else if (v == 'delete') {
                 final ok = await showDialog<bool>(
                   context: context,
-                  builder: (_) => AlertDialog(
+                  builder: (dialogContext) => AlertDialog(
                     title: const Text('Delete?'),
                     content: const Text('Are you sure you want to delete this party?'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete'))
+                      TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete'))
                     ],
                   ),
                 );
-                if (ok == true) await store.deleteParty(p.id);
+                if (ok == true) {
+                  if (!context.mounted) return;
+                  showDialog<void>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                  );
+                  final synced = await store.deleteParty(p.id);
+                  if (!context.mounted) return;
+                  Navigator.of(context, rootNavigator: true).pop();
+                  if (store.cloudEnabled && !synced) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted locally, but cloud sync failed.')));
+                  }
+                }
               }
             },
             itemBuilder: (_) => [
@@ -194,5 +214,3 @@ class _PartyCard extends StatelessWidget {
     ]);
   }
 }
-
-String encodeParty(Party p) => jsonEncode(p.toJson());

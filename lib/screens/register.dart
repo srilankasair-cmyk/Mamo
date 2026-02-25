@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models.dart';
 import '../store.dart';
 
 class RegisterArgs {
   final String partyId;
-  final Party? sharedParty;
-  RegisterArgs({required this.partyId, this.sharedParty});
+  RegisterArgs({required this.partyId});
 }
 
 class RegisterScreen extends StatefulWidget {
@@ -20,6 +18,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _form = GlobalKey<FormState>();
+  bool _isSubmitting = false;
   String _email = '';
   String _diet = 'No restriction';
   final _options = ['No restriction', 'Vegetarian', 'Vegan', 'No pork', 'No beef', 'No shellfish', 'Halal', 'Kosher', 'Gluten-free', 'Other'];
@@ -48,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final store = Provider.of<PartyStore>(context);
-    final party = store.byId(widget.args.partyId) ?? widget.args.sharedParty;
+    final party = store.byId(widget.args.partyId);
     final inputBgColor = Theme.of(context).inputDecorationTheme.fillColor ?? const Color(0xFFF8F1E7);
     const controlRadius = 14.0;
     final controlShadow = [
@@ -127,46 +126,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ElevatedButton(onPressed: () async {
               final messenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(context);
-              var currentParty = store.byId(widget.args.partyId) ?? widget.args.sharedParty;
+              var currentParty = store.byId(widget.args.partyId);
+              if (_isSubmitting) return;
               if (currentParty == null) {
                 messenger.showSnackBar(const SnackBar(content: Text('Party not found')));
                 return;
               }
 
-              if (store.byId(widget.args.partyId) == null) {
-                await store.ensurePartyExists(currentParty);
-                if (!mounted) return;
-                currentParty = store.byId(widget.args.partyId) ?? currentParty;
-              }
-
               if (!_form.currentState!.validate()) return;
               _form.currentState!.save();
-              // check duplicate
-              if (currentParty.registrations.any((r) => r.email.toLowerCase() == _email.toLowerCase())) {
-                messenger.showSnackBar(const SnackBar(content: Text('Already registered')));
-                return;
-              }
-              if (currentParty.limit != null && currentParty.registrations.length >= currentParty.limit!) {
-                messenger.showSnackBar(const SnackBar(content: Text('Party is full')));
-                return;
-              }
-              final ok = await store.register(currentParty.id, _email, _diet);
-              if (!mounted) return;
-              if (ok) {
-                if (store.cloudEnabled) {
-                  await store.refreshFromCloud();
-                  if (!mounted) return;
+              setState(() => _isSubmitting = true);
+              try {
+                if (currentParty.registrations.any((r) => r.email.toLowerCase() == _email.toLowerCase())) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Already registered')));
+                  return;
                 }
-                if (store.cloudEnabled && store.lastSyncError != null) {
-                  messenger.showSnackBar(const SnackBar(content: Text('Registration saved locally, but cloud sync failed.')));
+                if (currentParty.limit != null && currentParty.registrations.length >= currentParty.limit!) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Party is full')));
+                  return;
+                }
+
+                final ok = await store.register(currentParty.id, _email, _diet);
+                if (!mounted) return;
+                if (ok) {
+                  if (store.cloudEnabled) {
+                    await store.refreshFromCloud();
+                    if (!mounted) return;
+                  }
+                  if (store.cloudEnabled && store.lastSyncError != null) {
+                    messenger.showSnackBar(const SnackBar(content: Text('Registration saved locally, but cloud sync failed.')));
+                  } else {
+                    messenger.showSnackBar(const SnackBar(content: Text('Registration successful')));
+                  }
+                  navigator.pop();
                 } else {
-                  messenger.showSnackBar(const SnackBar(content: Text('Registration successful')));
+                  messenger.showSnackBar(const SnackBar(content: Text('Registration failed')));
                 }
-                navigator.pop();
-              } else {
-                messenger.showSnackBar(const SnackBar(content: Text('Registration failed')));
+              } finally {
+                if (mounted) {
+                  setState(() => _isSubmitting = false);
+                }
               }
-            }, child: const Text('Register')),
+            }, child: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                  )
+                : const Text('Register')),
           ]),
         ),
       ),
