@@ -1,2 +1,2 @@
-# Mamo
+# Parties
 My assignment
