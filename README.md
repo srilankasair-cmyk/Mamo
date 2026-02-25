@@ -50,6 +50,24 @@ flutter build web --release --base-href /<repo-name>/ --no-wasm-dry-run -O1
 
 Publish contents of `build/web` to the `gh-pages` branch.
 
+## Cross-device data persistence (Firebase)
+
+The app now supports cloud persistence with Firestore.
+
+1. Create a Firebase project and enable **Cloud Firestore**.
+2. In Firestore rules, allow your app to read/write (tighten later as needed).
+3. In GitHub repository settings, add these **Actions Secrets**:
+
+- `FIREBASE_API_KEY`
+- `FIREBASE_APP_ID`
+- `FIREBASE_MESSAGING_SENDER_ID`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_AUTH_DOMAIN`
+- `FIREBASE_STORAGE_BUCKET`
+- `FIREBASE_MEASUREMENT_ID`
+
+After secrets are set, push to `main` again to redeploy. Shared links and published parties will then work across different devices.
+
 ## Notes
 
 - If normal release build fails with `dart2js` process exit, keep `-O1`.

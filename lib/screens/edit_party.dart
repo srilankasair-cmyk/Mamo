@@ -91,10 +91,10 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
 
     Future<void> pickDateTime() async {
       final d = await showDatePicker(context: context, initialDate: _time, firstDate: DateTime(2000), lastDate: DateTime(2100));
+      if (!context.mounted) return;
       if (d != null) {
-        if (!mounted) return;
         final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_time));
-        if (!mounted) return;
+        if (!context.mounted) return;
         if (t != null) {
           setState(() => _time = DateTime(d.year, d.month, d.day, t.hour, t.minute));
         }
@@ -226,16 +226,21 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
                 if (!_form.currentState!.validate()) return;
                 _form.currentState!.save();
                 final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                bool synced = true;
                 if (isEdit) {
                   final old = widget.args!.party;
                   final updated = Party(id: old.id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64, registrations: old.registrations);
-                  await store.updateParty(updated);
+                  synced = await store.updateParty(updated);
                 } else {
                   final id = store.nextId();
                   final created = Party(id: id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64);
-                  await store.addParty(created);
+                  synced = await store.addParty(created);
                 }
                 if (!mounted) return;
+                if (store.cloudEnabled && !synced) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Saved locally, but cloud sync failed. Check Firestore rules/config.')));
+                }
                 navigator.pop();
               },
               child: const Text('Publish'),

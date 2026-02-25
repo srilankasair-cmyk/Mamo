@@ -40,6 +40,8 @@ dependencies:
   uuid: ^3.0.7
   file_picker: ^5.2.7
   intl: ^0.18.1
+  firebase_core: ^4.1.1
+  cloud_firestore: ^6.0.2
 
 dev_dependencies:
   flutter_test:

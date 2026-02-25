@@ -139,7 +139,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               final ok = await store.register(party.id, _email, _diet);
               if (!mounted) return;
               if (ok) {
-                messenger.showSnackBar(const SnackBar(content: Text('Registration successful')));
+                if (store.cloudEnabled && store.lastSyncError != null) {
+                  messenger.showSnackBar(const SnackBar(content: Text('Registration saved locally, but cloud sync failed.')));
+                } else {
+                  messenger.showSnackBar(const SnackBar(content: Text('Registration successful')));
+                }
                 navigator.pop();
               } else {
                 messenger.showSnackBar(const SnackBar(content: Text('Registration failed')));
