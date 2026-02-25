@@ -75,55 +75,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (party == null) return Scaffold(appBar: AppBar(title: const Text('Register')), body: const Center(child: Text('Party not found')));
     return Scaffold(
       appBar: AppBar(title: const Text('Register')),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Form(
-          key: _form,
-          child: Column(children: [
-            controlContainer(
-              child: TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email_outlined),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  filled: false,
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) => (v == null || !v.contains('@')) ? 'Enter valid email' : null,
-                onSaved: (v) => _email = v!.trim(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            controlContainer(
-              child: DropdownButtonFormField<String>(
-                initialValue: _diet,
-                dropdownColor: inputBgColor,
-                icon: const Icon(Icons.expand_more),
-                decoration: const InputDecoration(
-                  labelText: 'Dietary Preference',
-                  prefixIcon: Icon(Icons.restaurant_menu),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                  filled: false,
-                ),
-                items: _options
-                    .map(
-                      (o) => DropdownMenuItem(
-                        value: o,
-                        child: Row(
-                          children: [
-                            Icon(_dietIcon(o), size: 18),
-                            const SizedBox(width: 8),
-                            Text(o),
-                          ],
-                        ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Form(
+                        key: _form,
+                        child: Column(children: [
+                          controlContainer(
+                            child: TextFormField(
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email_outlined),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                filled: false,
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) => (v == null || !v.contains('@')) ? 'Enter valid email' : null,
+                              onSaved: (v) => _email = v!.trim(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          controlContainer(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _diet,
+                              dropdownColor: inputBgColor,
+                              icon: const Icon(Icons.expand_more),
+                              decoration: const InputDecoration(
+                                labelText: 'Dietary Preference',
+                                prefixIcon: Icon(Icons.restaurant_menu),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                filled: false,
+                              ),
+                              items: _options
+                                  .map(
+                                    (o) => DropdownMenuItem(
+                                      value: o,
+                                      child: Row(
+                                        children: [
+                                          Icon(_dietIcon(o), size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(o),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) => setState(() => _diet = v ?? _diet),
+                            ),
+                          ),
+                        ]),
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _diet = v ?? _diet),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: () async {
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(onPressed: () async {
               final messenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(context);
               var currentParty = store.byId(widget.args.partyId);
@@ -149,10 +169,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 final ok = await store.register(currentParty.id, _email, _diet);
                 if (!mounted) return;
                 if (ok) {
-                  if (store.cloudEnabled) {
-                    await store.refreshFromCloud();
-                    if (!mounted) return;
-                  }
                   if (store.cloudEnabled && store.lastSyncError != null) {
                     messenger.showSnackBar(const SnackBar(content: Text('Registration saved locally, but cloud sync failed.')));
                   } else {
@@ -168,13 +184,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 }
               }
             }, child: _isSubmitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
-                  )
-                : const Text('Register')),
-          ]),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          )
+                        : const Text('Register')),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -45,9 +45,7 @@ class PartyStore extends ChangeNotifier {
   Future<void> _loadInitial() async {
     _loadLocal();
     if (firestore != null) {
-      await _loadRemote();
-      await _saveLocal(notify: false);
-      notifyListeners();
+      unawaited(refreshFromCloud());
     }
   }
 
@@ -167,11 +165,7 @@ class PartyStore extends ChangeNotifier {
     return _runAction('publish', () async {
       parties.add(p);
       await _saveLocal();
-      final synced = await _savePartyToRemote(p);
-      if (synced) {
-        await refreshFromCloud();
-      }
-      return synced;
+      return await _savePartyToRemote(p);
     });
   }
 
@@ -180,11 +174,7 @@ class PartyStore extends ChangeNotifier {
       final i = parties.indexWhere((p) => p.id == updated.id);
       if (i != -1) parties[i] = updated;
       await _saveLocal();
-      final synced = await _savePartyToRemote(updated);
-      if (synced) {
-        await refreshFromCloud();
-      }
-      return synced;
+      return await _savePartyToRemote(updated);
     });
   }
 
@@ -192,11 +182,7 @@ class PartyStore extends ChangeNotifier {
     return _runAction('delete', () async {
       parties.removeWhere((p) => p.id == id);
       await _saveLocal();
-      final synced = await _deletePartyFromRemote(id);
-      if (synced) {
-        await refreshFromCloud();
-      }
-      return synced;
+      return await _deletePartyFromRemote(id);
     });
   }
 
