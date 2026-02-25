@@ -104,12 +104,16 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Edit Party' : 'New Party')),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Form(
-            key: _form,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final content = ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Form(
+                  key: _form,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               controlContainer(
                 child: TextFormField(
                   initialValue: _title,
@@ -213,16 +217,28 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-            ]),
-          ),
-        ),
+                  ]),
+                ),
+              ),
+            ),
+          );
+
+          if (constraints.maxWidth > 900) {
+            return Center(child: content);
+          }
+          return content;
+        },
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-          child: SizedBox(
-            height: 52,
-            child: ElevatedButton(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bar = ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
               onPressed: () async {
                 if (_isSubmitting) return;
                 if (!_form.currentState!.validate()) return;
@@ -262,8 +278,16 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                     )
                   : Text(isEdit ? 'Save' : 'Publish'),
-            ),
-          ),
+                  ),
+                ),
+              ),
+            );
+
+            if (constraints.maxWidth > 900) {
+              return Center(child: bar);
+            }
+            return bar;
+          },
         ),
       ),
     );

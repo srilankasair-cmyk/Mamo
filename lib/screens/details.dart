@@ -19,6 +19,10 @@ class PartyDetailsScreen extends StatelessWidget {
       final date = DateFormat.yMMMd().add_jm().format(p.time);
       final infoStyle = Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w700);
       final imageHeight = (MediaQuery.of(context).size.width * 3 / 4).clamp(240.0, 400.0).toDouble();
+      final isWide = MediaQuery.of(context).size.width > 900;
+      final contentPadding = isWide ? 10.0 : 12.0;
+      final sectionGap = isWide ? 8.0 : 12.0;
+      final itemDense = isWide;
       const emojiFallback = ['Apple Color Emoji', 'Noto Color Emoji', 'Segoe UI Emoji'];
       return Scaffold(
         body: CustomScrollView(
@@ -105,9 +109,12 @@ class PartyDetailsScreen extends StatelessWidget {
             SliverToBoxAdapter(
               child: DefaultTextStyle.merge(
                 style: const TextStyle(fontFamilyFallback: emojiFallback),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: Padding(
+                      padding: EdgeInsets.all(contentPadding),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(p.title,
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 28, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 8),
@@ -118,7 +125,7 @@ class PartyDetailsScreen extends StatelessWidget {
                   Text('Fee: ${p.fee == 0 ? 'Free' : '€${p.fee.toStringAsFixed(2)}'}'),
                   const SizedBox(height: 8),
                   Text('Capacity: ${p.registrations.length}/${p.limit ?? '∞'}'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: sectionGap),
                   Text('About', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 6),
                   Card(
@@ -131,28 +138,42 @@ class PartyDetailsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: sectionGap),
                   Text('Registrations', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 6),
-                  ...p.registrations.map((r) => ListTile(title: Text(r.email), subtitle: Text(r.diet))),
+                  ...p.registrations.map((r) => ListTile(dense: itemDense, visualDensity: itemDense ? VisualDensity.compact : VisualDensity.standard, contentPadding: const EdgeInsets.symmetric(horizontal: 4), title: Text(r.email), subtitle: Text(r.diet))),
                   const SizedBox(height: 12),
                 ]),
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
         ),
         bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-            child: SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, RegisterScreen.routeName, arguments: RegisterArgs(partyId: p.id)),
-                style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                child: const Text('Register'),
-              ),
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final bar = ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pushNamed(context, RegisterScreen.routeName, arguments: RegisterArgs(partyId: p.id)),
+                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      child: const Text('Register'),
+                    ),
+                  ),
+                ),
+              );
+
+              if (constraints.maxWidth > 900) {
+                return Center(child: bar);
+              }
+              return bar;
+            },
           ),
         ),
       );

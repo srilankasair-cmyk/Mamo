@@ -75,11 +75,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (party == null) return Scaffold(appBar: AppBar(title: const Text('Register')), body: const Center(child: Text('Party not found')));
     return Scaffold(
       appBar: AppBar(title: const Text('Register')),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Form(
-          key: _form,
-          child: Column(children: [
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final content = ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Form(
+                key: _form,
+                child: Column(children: [
             controlContainer(
               child: TextFormField(
                 decoration: const InputDecoration(
@@ -174,8 +178,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
                   )
                 : const Text('Register')),
-          ]),
-        ),
+                ]),
+              ),
+            ),
+          );
+
+          if (constraints.maxWidth > 900) {
+            return Center(child: content);
+          }
+          return content;
+        },
       ),
     );
   }
