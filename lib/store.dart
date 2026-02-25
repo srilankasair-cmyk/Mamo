@@ -67,6 +67,13 @@ class PartyStore extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshFromCloud() async {
+    if (_partiesCollection == null) return;
+    await _loadRemote();
+    await _saveLocal(notify: false);
+    notifyListeners();
+  }
+
   void _startRemoteSync() {
     if (_partiesCollection == null) return;
 
@@ -158,6 +165,17 @@ class PartyStore extends ChangeNotifier {
     await _saveLocal();
     await _savePartyToRemote(p);
     return true;
+  }
+
+  Future<bool> ensurePartyExists(Party party) async {
+    final existing = byId(party.id);
+    if (existing != null) {
+      return true;
+    }
+
+    parties.add(party);
+    await _saveLocal();
+    return await _savePartyToRemote(party);
   }
 
   String nextId() => const Uuid().v4();

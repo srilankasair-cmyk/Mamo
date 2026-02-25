@@ -27,6 +27,24 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
+        if (!store.cloudEnabled || store.lastSyncError != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                !store.cloudEnabled
+                    ? 'Cloud sync is disabled. Configure Firebase Secrets in GitHub Actions to share data across devices.'
+                    : 'Cloud sync error: ${store.lastSyncError}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ),
         Expanded(
           child: LayoutBuilder(builder: (context, constraints) {
             final cross = constraints.maxWidth > 600 ? 2 : 1;
@@ -138,7 +156,8 @@ class _PartyCard extends StatelessWidget {
                 await Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: EditArgs(party: p));
                 return;
               } else if (v == 'share') {
-                final link = Uri.base.replace(fragment: '/party/${p.id}').toString();
+                final payload = Uri.encodeComponent(base64Url.encode(utf8.encode(encodeParty(p))));
+                final link = Uri.base.replace(fragment: '/party/${p.id}?d=$payload').toString();
                 await Clipboard.setData(ClipboardData(text: link));
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link copied')));
@@ -175,3 +194,5 @@ class _PartyCard extends StatelessWidget {
     ]);
   }
 }
+
+String encodeParty(Party p) => jsonEncode(p.toJson());

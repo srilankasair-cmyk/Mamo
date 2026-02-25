@@ -4,17 +4,19 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../store.dart';
+import '../models.dart';
 import 'register.dart';
 import 'edit_party.dart';
 
 class PartyDetailsScreen extends StatelessWidget {
   final String partyId;
-  const PartyDetailsScreen({super.key, required this.partyId});
+  final Party? sharedParty;
+  const PartyDetailsScreen({super.key, required this.partyId, this.sharedParty});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<PartyStore>(builder: (context, store, _) {
-      final p = store.byId(partyId);
+      final p = store.byId(partyId) ?? sharedParty;
       if (p == null) return Scaffold(appBar: AppBar(title: const Text('Not found')), body: const Center(child: Text('Party not found')));
       final date = DateFormat.yMMMd().add_jm().format(p.time);
       final infoStyle = Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w700);
@@ -57,7 +59,8 @@ class PartyDetailsScreen extends StatelessWidget {
                     ),
                     onSelected: (v) async {
                       if (v == 'share') {
-                        final link = Uri.base.replace(fragment: '/party/${p.id}').toString();
+                        final payload = Uri.encodeComponent(base64Url.encode(utf8.encode(jsonEncode(p.toJson()))));
+                        final link = Uri.base.replace(fragment: '/party/${p.id}?d=$payload').toString();
                         await Clipboard.setData(ClipboardData(text: link));
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link copied')));
@@ -138,7 +141,7 @@ class PartyDetailsScreen extends StatelessWidget {
             child: SizedBox(
               height: 52,
               child: ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, RegisterScreen.routeName, arguments: RegisterArgs(partyId: p.id)),
+                onPressed: () => Navigator.pushNamed(context, RegisterScreen.routeName, arguments: RegisterArgs(partyId: p.id, sharedParty: p)),
                 style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                 child: const Text('Register'),
               ),

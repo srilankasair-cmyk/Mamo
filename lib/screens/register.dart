@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models.dart';
 import '../store.dart';
 
 class RegisterArgs {
   final String partyId;
-  RegisterArgs({required this.partyId});
+  final Party? sharedParty;
+  RegisterArgs({required this.partyId, this.sharedParty});
 }
 
 class RegisterScreen extends StatefulWidget {
@@ -46,7 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final store = Provider.of<PartyStore>(context);
-    final party = store.byId(widget.args.partyId);
+    final party = store.byId(widget.args.partyId) ?? widget.args.sharedParty;
     final inputBgColor = Theme.of(context).inputDecorationTheme.fillColor ?? const Color(0xFFF8F1E7);
     const controlRadius = 14.0;
     final controlShadow = [
@@ -123,22 +125,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              var currentParty = store.byId(widget.args.partyId) ?? widget.args.sharedParty;
+              if (currentParty == null) {
+                messenger.showSnackBar(const SnackBar(content: Text('Party not found')));
+                return;
+              }
+
+              if (store.byId(widget.args.partyId) == null) {
+                await store.ensurePartyExists(currentParty);
+                if (!mounted) return;
+                currentParty = store.byId(widget.args.partyId) ?? currentParty;
+              }
+
               if (!_form.currentState!.validate()) return;
               _form.currentState!.save();
               // check duplicate
-              if (party.registrations.any((r) => r.email.toLowerCase() == _email.toLowerCase())) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Already registered')));
+              if (currentParty.registrations.any((r) => r.email.toLowerCase() == _email.toLowerCase())) {
+                messenger.showSnackBar(const SnackBar(content: Text('Already registered')));
                 return;
               }
-              if (party.limit != null && party.registrations.length >= party.limit!) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Party is full')));
+              if (currentParty.limit != null && currentParty.registrations.length >= currentParty.limit!) {
+                messenger.showSnackBar(const SnackBar(content: Text('Party is full')));
                 return;
               }
-              final messenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(context);
-              final ok = await store.register(party.id, _email, _diet);
+              final ok = await store.register(currentParty.id, _email, _diet);
               if (!mounted) return;
               if (ok) {
+                if (store.cloudEnabled) {
+                  await store.refreshFromCloud();
+                  if (!mounted) return;
+                }
                 if (store.cloudEnabled && store.lastSyncError != null) {
                   messenger.showSnackBar(const SnackBar(content: Text('Registration saved locally, but cloud sync failed.')));
                 } else {

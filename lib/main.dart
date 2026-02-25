@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 // intl imported in screens where needed
@@ -8,6 +9,7 @@ import 'screens/home.dart';
 import 'screens/details.dart';
 import 'screens/edit_party.dart';
 import 'screens/register.dart';
+import 'models.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,8 +74,17 @@ class MyApp extends StatelessWidget {
         onGenerateRoute: (settings) {
           // support path like /party/ID
           if (settings.name != null && settings.name!.startsWith('/party/')) {
-            final id = settings.name!.split('/').last;
-            return MaterialPageRoute(builder: (_) => PartyDetailsScreen(partyId: id));
+            final uri = Uri.parse(settings.name!);
+            final id = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : settings.name!.split('/').last;
+            Party? sharedParty;
+            final encoded = uri.queryParameters['d'];
+            if (encoded != null && encoded.isNotEmpty) {
+              try {
+                final jsonStr = utf8.decode(base64Url.decode(Uri.decodeComponent(encoded)));
+                sharedParty = Party.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
+              } catch (_) {}
+            }
+            return MaterialPageRoute(builder: (_) => PartyDetailsScreen(partyId: id, sharedParty: sharedParty));
           }
           switch (settings.name) {
             case '/':
