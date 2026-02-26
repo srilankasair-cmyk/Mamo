@@ -31,7 +31,7 @@ jobs:
 
       - name: Build web
         run: |
-          flutter build web --release --no-wasm-dry-run -O1 \
+          flutter build web --release --web-renderer html \
             --base-href "/${{ github.event.repository.name }}/" \
             --dart-define=FIREBASE_API_KEY="${{ secrets.FIREBASE_API_KEY }}" \
             --dart-define=FIREBASE_APP_ID="${{ secrets.FIREBASE_APP_ID }}" \

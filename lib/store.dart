@@ -14,6 +14,7 @@ class PartyStore extends ChangeNotifier {
   final FirebaseFirestore? firestore;
   List<Party> parties = [];
   final Set<String> _pendingCloudPartyIds = <String>{};
+  final Set<String> _pendingDeletePartyIds = <String>{};
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
   String? lastSyncError;
   bool isInitialLoading = false;
@@ -160,6 +161,10 @@ class PartyStore extends ChangeNotifier {
       for (final localParty in localBeforeSync) {
         final existsInRemote = remoteParties.any((remoteParty) => remoteParty.id == localParty.id);
         if (!existsInRemote) {
+          // Skip parties that are being deleted - don't re-upload them
+          if (_pendingDeletePartyIds.contains(localParty.id)) {
+            continue;
+          }
           merged.add(localParty);
           recoveredLocalCount += 1;
           unawaited(_syncPartyToRemoteInBackground(localParty));
@@ -257,8 +262,15 @@ class PartyStore extends ChangeNotifier {
   }
 
   Future<void> _deletePartyFromRemoteInBackground(String id) async {
-    if (_partiesCollection == null) return;
-    await _deletePartyFromRemote(id);
+    if (_partiesCollection == null) {
+      _pendingDeletePartyIds.remove(id);
+      return;
+    }
+    final success = await _deletePartyFromRemote(id);
+    if (success) {
+      _pendingDeletePartyIds.remove(id);
+    }
+    // Keep in pending set if failed, so it won't be re-uploaded
   }
 
   List<Party> upcoming() => parties.where((p) => p.time.isAfter(DateTime.now())).toList();
@@ -367,6 +379,8 @@ class PartyStore extends ChangeNotifier {
 
   Future<bool> deleteParty(String id) async {
     return _runAction('delete', () async {
+      // Mark as pending delete immediately to prevent re-upload from other devices
+      _pendingDeletePartyIds.add(id);
       parties.removeWhere((p) => p.id == id);
       await _saveLocal();
       unawaited(_deletePartyFromRemoteInBackground(id));
