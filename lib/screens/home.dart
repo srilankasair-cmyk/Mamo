@@ -167,15 +167,15 @@ class _PartyCard extends StatelessWidget {
       Positioned(
         left: 6,
         top: 6,
-        child: showCloudState
+        child: showCloudState && isPendingCloud
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isPendingCloud ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.primary,
+                  color: Theme.of(context).colorScheme.secondary,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  isPendingCloud ? 'Publishing...' : 'Synced',
+                  'Publishing...',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
