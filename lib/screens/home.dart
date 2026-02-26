@@ -43,7 +43,7 @@ class HomeScreen extends StatelessWidget {
               child: Text(
                 !store.cloudEnabled
                     ? 'Cloud sync is disabled. Configure Firebase Secrets in GitHub Actions to share data across devices.'
-                    : 'Cloud sync error: ${store.lastSyncError}',
+                    : store.lastSyncError!,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),

@@ -9,7 +9,7 @@ import 'firebase_env.dart';
 
 class PartyStore extends ChangeNotifier {
   static const _kKey = 'parties_v1';
-  static const Duration _cloudTimeout = Duration(seconds: 8);
+  static const Duration _cloudTimeout = Duration(seconds: 20);
   final SharedPreferences prefs;
   final FirebaseFirestore? firestore;
   List<Party> parties = [];
@@ -72,7 +72,11 @@ class PartyStore extends ChangeNotifier {
         ..sort((a, b) => a.time.compareTo(b.time));
       lastSyncError = null;
     } catch (e) {
-      lastSyncError = 'Cloud read failed: $e';
+      if (e is TimeoutException) {
+        lastSyncError = 'Cloud sync is slow. Retrying in background.';
+      } else {
+        lastSyncError = 'Cloud read failed: $e';
+      }
     } finally {
       isSyncing = false;
       notifyListeners();
@@ -136,7 +140,11 @@ class PartyStore extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      lastSyncError = 'Cloud write failed: $e';
+      if (e is TimeoutException) {
+        lastSyncError = 'Cloud write is slow. Retrying in background.';
+      } else {
+        lastSyncError = 'Cloud write failed: $e';
+      }
       notifyListeners();
       return false;
     }
@@ -150,7 +158,11 @@ class PartyStore extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      lastSyncError = 'Cloud delete failed: $e';
+      if (e is TimeoutException) {
+        lastSyncError = 'Cloud delete is slow. Retrying in background.';
+      } else {
+        lastSyncError = 'Cloud delete failed: $e';
+      }
       notifyListeners();
       return false;
     }
