@@ -7,9 +7,68 @@ import '../store.dart';
 import 'register.dart';
 import 'edit_party.dart';
 
-class PartyDetailsScreen extends StatelessWidget {
+class PartyDetailsScreen extends StatefulWidget {
   final String partyId;
   const PartyDetailsScreen({super.key, required this.partyId});
+
+  @override
+  State<PartyDetailsScreen> createState() => _PartyDetailsScreenState();
+}
+
+class _PartyDetailsScreenState extends State<PartyDetailsScreen> {
+  bool _isLoading = true;
+  bool _notFound = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadParty();
+  }
+
+  Future<void> _loadParty() async {
+    final store = Provider.of<PartyStore>(context, listen: false);
+
+    // First check if already available locally
+    if (store.byId(widget.partyId) != null) {
+      setState(() {
+        _isLoading = false;
+        _notFound = false;
+      });
+      return;
+    }
+
+    // If cloud is enabled, wait for first sync or fetch directly
+    if (store.cloudEnabled) {
+      // Try to wait for first sync (quick timeout)
+      await store.waitForFirstSync(timeout: const Duration(seconds: 3));
+
+      // Check again after sync
+      if (store.byId(widget.partyId) != null) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _notFound = false;
+          });
+        }
+        return;
+      }
+
+      // Still not found, try to fetch directly by ID
+      final party = await store.fetchPartyById(widget.partyId);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _notFound = party == null;
+        });
+      }
+    } else {
+      // No cloud, just mark as not found
+      setState(() {
+        _isLoading = false;
+        _notFound = true;
+      });
+    }
+  }
 
   Widget _poster(String? posterBase64) {
     if (posterBase64 == null || posterBase64.isEmpty) {
@@ -24,9 +83,41 @@ class PartyDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading state
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Loading...')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Consumer<PartyStore>(builder: (context, store, _) {
-      final p = store.byId(partyId);
-      if (p == null) return Scaffold(appBar: AppBar(title: const Text('Not found')), body: const Center(child: Text('Party not found')));
+      final p = store.byId(widget.partyId);
+      if (p == null || _notFound) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Not found')),
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Party not found'),
+                const SizedBox(height: 16),
+                if (store.cloudEnabled)
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isLoading = true;
+                        _notFound = false;
+                      });
+                      _loadParty();
+                    },
+                    child: const Text('Retry'),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }
       final date = DateFormat.yMMMd().add_jm().format(p.time);
       final infoStyle = Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.w700);
       final imageHeight = (MediaQuery.of(context).size.width * 3 / 4).clamp(240.0, 400.0).toDouble();

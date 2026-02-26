@@ -18,6 +18,7 @@ class PartyStore extends ChangeNotifier {
   String? lastSyncError;
   bool isInitialLoading = false;
   bool isSyncing = false;
+  bool isFirstSyncComplete = false;
   bool isCloudTesting = false;
   bool isActionLoading = false;
   String? loadingAction;
@@ -174,6 +175,7 @@ class PartyStore extends ChangeNotifier {
         lastSyncError = null;
       }
       isSyncing = false;
+      isFirstSyncComplete = true;
 
       await _saveLocal(notify: false);
       notifyListeners();
@@ -195,7 +197,14 @@ class PartyStore extends ChangeNotifier {
   Future<bool> _savePartyToRemote(Party p) async {
     if (_partiesCollection == null) return false;
     try {
-      await _partiesCollection!.doc(p.id).set(p.toJson()).timeout(_cloudTimeout);
+      final docRef = _partiesCollection!.doc(p.id);
+      await docRef.set(p.toJson()).timeout(_cloudTimeout);
+      final serverDoc = await docRef.get(const GetOptions(source: Source.server)).timeout(_cloudTimeout);
+      if (!serverDoc.exists) {
+        lastSyncError = 'Cloud write not yet visible on server. Retrying in background.${_projectHint()}';
+        notifyListeners();
+        return false;
+      }
       lastSyncError = null;
       notifyListeners();
       return true;
@@ -260,6 +269,76 @@ class PartyStore extends ChangeNotifier {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Fetches a specific party from cloud by ID.
+  /// Returns the party if found, null otherwise.
+  /// Use this when a shared link is opened and party is not in local data.
+  Future<Party?> fetchPartyById(String id) async {
+    // First check local cache
+    final local = byId(id);
+    if (local != null) return local;
+
+    // If cloud not enabled, nothing to fetch
+    if (_partiesCollection == null) return null;
+
+    try {
+      final doc = await _partiesCollection!.doc(id).get().timeout(_cloudTimeout);
+      if (!doc.exists) return null;
+
+      final map = doc.data()!;
+      map['id'] = (map['id'] as String?) ?? doc.id;
+      final party = Party.fromJson(map);
+
+      // Add to local cache and persist
+      final existingIndex = parties.indexWhere((p) => p.id == party.id);
+      if (existingIndex == -1) {
+        parties.add(party);
+      } else {
+        parties[existingIndex] = party;
+      }
+      parties.sort((a, b) => a.time.compareTo(b.time));
+      await _saveLocal(notify: false);
+      notifyListeners();
+
+      return party;
+    } on TimeoutException {
+      lastSyncError = 'Cloud fetch timed out. Check network access.${_projectHint()}';
+      notifyListeners();
+      return null;
+    } catch (e) {
+      lastSyncError = 'Failed to fetch party: $e';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Wait for first cloud sync to complete (with timeout)
+  Future<bool> waitForFirstSync({Duration timeout = const Duration(seconds: 10)}) async {
+    if (!cloudEnabled) return true;
+    if (isFirstSyncComplete) return true;
+
+    final completer = Completer<bool>();
+    Timer? timer;
+
+    void listener() {
+      if (isFirstSyncComplete && !completer.isCompleted) {
+        timer?.cancel();
+        completer.complete(true);
+      }
+    }
+
+    addListener(listener);
+    timer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        removeListener(listener);
+        completer.complete(false);
+      }
+    });
+
+    final result = await completer.future;
+    removeListener(listener);
+    return result;
   }
 
   Future<bool> addParty(Party p) async {
