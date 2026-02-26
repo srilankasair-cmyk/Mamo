@@ -144,7 +144,7 @@ class _PartyCard extends StatelessWidget {
                   : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image, size: 48))),
             ),
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(12.0),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(p.title,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
@@ -157,7 +157,23 @@ class _PartyCard extends StatelessWidget {
                   Text(p.location!, style: Theme.of(context).textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 6),
                 ],
-                Text('${p.registrations.length}/${p.limit ?? '∞'} attending', style: Theme.of(context).textTheme.bodySmall),
+                Row(
+                  children: [
+                    if (p.fee == 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B5E20),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('Free', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                      )
+                    else
+                      Text('€${p.fee.toStringAsFixed(p.fee == p.fee.roundToDouble() ? 0 : 2)}', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 12),
+                    Text('${p.registrations.length}/${p.limit ?? '∞'} attending', style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
               ]),
             )
           ]),
@@ -220,6 +236,8 @@ class _PartyCard extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link copied')));
                 return;
               } else if (v == 'delete') {
+                final navigator = Navigator.of(context, rootNavigator: true);
+                final messenger = ScaffoldMessenger.of(context);
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (dialogContext) => AlertDialog(
@@ -239,10 +257,9 @@ class _PartyCard extends StatelessWidget {
                     builder: (_) => const Center(child: CircularProgressIndicator()),
                   );
                   final synced = await store.deleteParty(p.id);
-                  if (!context.mounted) return;
-                  Navigator.of(context, rootNavigator: true).pop();
+                  navigator.pop(); // use captured navigator reference
                   if (store.cloudEnabled && !synced) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted locally, but cloud sync failed.')));
+                    messenger.showSnackBar(const SnackBar(content: Text('Deleted locally, but cloud sync failed.')));
                   }
                 }
               }
