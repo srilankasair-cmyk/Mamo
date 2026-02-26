@@ -13,6 +13,7 @@ class PartyStore extends ChangeNotifier {
   final SharedPreferences prefs;
   final FirebaseFirestore? firestore;
   List<Party> parties = [];
+  final Set<String> _pendingCloudPartyIds = <String>{};
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
   String? lastSyncError;
   bool isInitialLoading = false;
@@ -21,6 +22,8 @@ class PartyStore extends ChangeNotifier {
   bool isActionLoading = false;
   String? loadingAction;
   String? get cloudProjectId => firestore?.app.options.projectId;
+  bool isPartyPendingCloud(String partyId) => _pendingCloudPartyIds.contains(partyId);
+  int get pendingCloudCount => _pendingCloudPartyIds.length;
 
   String _projectHint() {
     final id = (cloudProjectId ?? '').trim();
@@ -235,7 +238,13 @@ class PartyStore extends ChangeNotifier {
 
   Future<void> _syncPartyToRemoteInBackground(Party p) async {
     if (_partiesCollection == null) return;
-    await _savePartyToRemote(p);
+    _pendingCloudPartyIds.add(p.id);
+    notifyListeners();
+    final synced = await _savePartyToRemote(p);
+    if (synced) {
+      _pendingCloudPartyIds.remove(p.id);
+    }
+    notifyListeners();
   }
 
   Future<void> _deletePartyFromRemoteInBackground(String id) async {

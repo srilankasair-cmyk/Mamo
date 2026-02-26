@@ -30,30 +30,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
-        if (store.cloudEnabled)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: store.isCloudTesting
-                    ? null
-                    : () async {
-                        final message = await store.testCloudConnection();
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-                      },
-                icon: store.isCloudTesting
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.cloud_done_outlined),
-                label: Text(store.isCloudTesting ? 'Testing...' : 'Test Cloud'),
-              ),
-            ),
-          ),
         if (!store.cloudEnabled || store.lastSyncError != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -89,7 +65,12 @@ class HomeScreen extends StatelessWidget {
                   final p = parties[i];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
-                    child: _PartyCard(p: p, onTap: () => Navigator.pushNamed(context, '/party/${p.id}')),
+                    child: _PartyCard(
+                      p: p,
+                      showCloudState: store.cloudEnabled,
+                      isPendingCloud: store.isPartyPendingCloud(p.id),
+                      onTap: () => Navigator.pushNamed(context, '/party/${p.id}'),
+                    ),
                   );
                 },
               );
@@ -115,7 +96,12 @@ class HomeScreen extends StatelessWidget {
               itemCount: parties.length,
               itemBuilder: (context, i) {
                 final p = parties[i];
-                return _PartyCard(p: p, onTap: () => Navigator.pushNamed(context, '/party/${p.id}'));
+                return _PartyCard(
+                  p: p,
+                  showCloudState: store.cloudEnabled,
+                  isPendingCloud: store.isPartyPendingCloud(p.id),
+                  onTap: () => Navigator.pushNamed(context, '/party/${p.id}'),
+                );
               },
             );
           }),
@@ -138,8 +124,10 @@ class HomeScreen extends StatelessWidget {
 
 class _PartyCard extends StatelessWidget {
   final Party p;
+  final bool showCloudState;
+  final bool isPendingCloud;
   final VoidCallback onTap;
-  const _PartyCard({required this.p, required this.onTap});
+  const _PartyCard({required this.p, required this.showCloudState, required this.isPendingCloud, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +163,26 @@ class _PartyCard extends StatelessWidget {
             )
           ]),
         ),
+      ),
+      Positioned(
+        left: 6,
+        top: 6,
+        child: showCloudState
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isPendingCloud ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  isPendingCloud ? 'Publishing...' : 'Synced',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              )
+            : const SizedBox.shrink(),
       ),
       Positioned(
         right: 6,
