@@ -9,6 +9,7 @@ import 'firebase_env.dart';
 
 class PartyStore extends ChangeNotifier {
   static const _kKey = 'parties_v1';
+  static const Duration _cloudTimeout = Duration(seconds: 8);
   final SharedPreferences prefs;
   final FirebaseFirestore? firestore;
   List<Party> parties = [];
@@ -62,7 +63,7 @@ class PartyStore extends ChangeNotifier {
     isSyncing = true;
     notifyListeners();
     try {
-      final snapshot = await _partiesCollection!.get();
+      final snapshot = await _partiesCollection!.get().timeout(_cloudTimeout);
       parties = snapshot.docs.map((d) {
         final map = d.data();
         map['id'] = (map['id'] as String?) ?? d.id;
@@ -130,11 +131,13 @@ class PartyStore extends ChangeNotifier {
   Future<bool> _savePartyToRemote(Party p) async {
     if (_partiesCollection == null) return false;
     try {
-      await _partiesCollection!.doc(p.id).set(p.toJson());
+      await _partiesCollection!.doc(p.id).set(p.toJson()).timeout(_cloudTimeout);
       lastSyncError = null;
+      notifyListeners();
       return true;
     } catch (e) {
       lastSyncError = 'Cloud write failed: $e';
+      notifyListeners();
       return false;
     }
   }
@@ -142,13 +145,25 @@ class PartyStore extends ChangeNotifier {
   Future<bool> _deletePartyFromRemote(String id) async {
     if (_partiesCollection == null) return false;
     try {
-      await _partiesCollection!.doc(id).delete();
+      await _partiesCollection!.doc(id).delete().timeout(_cloudTimeout);
       lastSyncError = null;
+      notifyListeners();
       return true;
     } catch (e) {
       lastSyncError = 'Cloud delete failed: $e';
+      notifyListeners();
       return false;
     }
+  }
+
+  Future<void> _syncPartyToRemoteInBackground(Party p) async {
+    if (_partiesCollection == null) return;
+    await _savePartyToRemote(p);
+  }
+
+  Future<void> _deletePartyFromRemoteInBackground(String id) async {
+    if (_partiesCollection == null) return;
+    await _deletePartyFromRemote(id);
   }
 
   List<Party> upcoming() => parties.where((p) => p.time.isAfter(DateTime.now())).toList();
@@ -165,7 +180,8 @@ class PartyStore extends ChangeNotifier {
     return _runAction('publish', () async {
       parties.add(p);
       await _saveLocal();
-      return await _savePartyToRemote(p);
+      unawaited(_syncPartyToRemoteInBackground(p));
+      return true;
     });
   }
 
@@ -174,7 +190,8 @@ class PartyStore extends ChangeNotifier {
       final i = parties.indexWhere((p) => p.id == updated.id);
       if (i != -1) parties[i] = updated;
       await _saveLocal();
-      return await _savePartyToRemote(updated);
+      unawaited(_syncPartyToRemoteInBackground(updated));
+      return true;
     });
   }
 
@@ -182,7 +199,8 @@ class PartyStore extends ChangeNotifier {
     return _runAction('delete', () async {
       parties.removeWhere((p) => p.id == id);
       await _saveLocal();
-      return await _deletePartyFromRemote(id);
+      unawaited(_deletePartyFromRemoteInBackground(id));
+      return true;
     });
   }
 
@@ -194,7 +212,7 @@ class PartyStore extends ChangeNotifier {
       if (p.limit != null && p.registrations.length >= p.limit!) return false;
       p.registrations.add(Registration(email: email, diet: diet));
       await _saveLocal();
-      await _savePartyToRemote(p);
+      unawaited(_syncPartyToRemoteInBackground(p));
       return true;
     });
   }
@@ -208,7 +226,8 @@ class PartyStore extends ChangeNotifier {
 
       parties.add(party);
       await _saveLocal();
-      return await _savePartyToRemote(party);
+      unawaited(_syncPartyToRemoteInBackground(party));
+      return true;
     });
   }
 

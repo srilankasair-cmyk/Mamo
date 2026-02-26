@@ -101,7 +101,7 @@ class HomeScreen extends StatelessWidget {
             child: Align(
             alignment: Alignment.bottomRight,
             child: FloatingActionButton(
-              onPressed: store.isActionLoading ? null : () => Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: null),
+              onPressed: () => Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: null),
               tooltip: 'Create',
               child: const Icon(Icons.add),
             ),
