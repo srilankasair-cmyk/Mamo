@@ -55,9 +55,6 @@ class PartyStore extends ChangeNotifier {
 
   Future<void> _loadInitial() async {
     _loadLocal();
-    if (firestore != null) {
-      unawaited(refreshFromCloud());
-    }
   }
 
   void _loadLocal() {
@@ -111,6 +108,8 @@ class PartyStore extends ChangeNotifier {
     notifyListeners();
     try {
       await _partiesCollection!.limit(1).get().timeout(_cloudTimeout);
+      lastSyncError = null;
+      notifyListeners();
       return 'Cloud connection OK${_projectHint()}';
     } on FirebaseException catch (e) {
       return 'Cloud test failed (${e.code})${_projectHint()}';
@@ -140,6 +139,9 @@ class PartyStore extends ChangeNotifier {
   void _startRemoteSync() {
     if (_partiesCollection == null) return;
 
+    isSyncing = true;
+    notifyListeners();
+
     _subscription = _partiesCollection!.snapshots().listen((snapshot) async {
       parties = snapshot.docs.map((d) {
         final map = d.data();
@@ -149,11 +151,13 @@ class PartyStore extends ChangeNotifier {
         ..sort((a, b) => a.time.compareTo(b.time));
 
       lastSyncError = null;
+      isSyncing = false;
 
       await _saveLocal(notify: false);
       notifyListeners();
     }, onError: (Object e) {
       lastSyncError = 'Cloud sync failed: $e';
+      isSyncing = false;
       notifyListeners();
     });
   }

@@ -16,15 +16,6 @@ class HomeScreen extends StatelessWidget {
       final parties = store.parties..sort((a, b) => a.time.compareTo(b.time));
       final count = parties.length;
       final headerText = count == 1 ? '1 Party' : '$count PARTIES';
-      final cloudErrorText = (() {
-        if (store.lastSyncError == null) return null;
-        final message = store.lastSyncError!;
-        final project = store.cloudProjectId;
-        if (project == null || project.isEmpty || message.contains('(project:')) {
-          return message;
-        }
-        return '$message (project: $project)';
-      })();
       if (store.isInitialLoading && parties.isEmpty) {
         return const Center(child: CircularProgressIndicator());
       }
@@ -76,7 +67,7 @@ class HomeScreen extends StatelessWidget {
               child: Text(
                 !store.cloudEnabled
                     ? 'Cloud sync is disabled. Configure Firebase Secrets in GitHub Actions to share data across devices.'
-                    : cloudErrorText!,
+                    : store.lastSyncError!,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
