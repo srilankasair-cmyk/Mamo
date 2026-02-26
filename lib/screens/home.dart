@@ -13,7 +13,12 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<PartyStore>(builder: (context, store, _) {
-      final parties = store.parties..sort((a, b) => a.time.compareTo(b.time));
+      final now = DateTime.now();
+      final upcoming = store.parties.where((p) => p.time.isAfter(now)).toList()
+        ..sort((a, b) => a.time.compareTo(b.time));
+      final expired = store.parties.where((p) => !p.time.isAfter(now)).toList()
+        ..sort((a, b) => b.time.compareTo(a.time)); // most recently expired first
+      final parties = [...upcoming, ...expired];
       final count = parties.length;
       final headerText = count == 1 ? '1 Party' : '$count PARTIES';
       if (store.isInitialLoading && parties.isEmpty) {
@@ -63,12 +68,14 @@ class HomeScreen extends StatelessWidget {
                 itemCount: parties.length,
                 itemBuilder: (context, i) {
                   final p = parties[i];
+                  final isExpired = !p.time.isAfter(now);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: _PartyCard(
                       p: p,
                       showCloudState: store.cloudEnabled,
                       isPendingCloud: store.isPartyPendingCloud(p.id),
+                      isExpired: isExpired,
                       onTap: () => Navigator.pushNamed(context, '/party/${p.id}'),
                     ),
                   );
@@ -96,10 +103,12 @@ class HomeScreen extends StatelessWidget {
               itemCount: parties.length,
               itemBuilder: (context, i) {
                 final p = parties[i];
+                final isExpired = !p.time.isAfter(now);
                 return _PartyCard(
                   p: p,
                   showCloudState: store.cloudEnabled,
                   isPendingCloud: store.isPartyPendingCloud(p.id),
+                  isExpired: isExpired,
                   onTap: () => Navigator.pushNamed(context, '/party/${p.id}'),
                 );
               },
@@ -115,8 +124,9 @@ class _PartyCard extends StatelessWidget {
   final Party p;
   final bool showCloudState;
   final bool isPendingCloud;
+  final bool isExpired;
   final VoidCallback onTap;
-  const _PartyCard({required this.p, required this.showCloudState, required this.isPendingCloud, required this.onTap});
+  const _PartyCard({required this.p, required this.showCloudState, required this.isPendingCloud, required this.isExpired, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -156,8 +166,10 @@ class _PartyCard extends StatelessWidget {
       Positioned(
         left: 6,
         top: 6,
-        child: showCloudState && isPendingCloud
-            ? Container(
+        child: Row(
+          children: [
+            if (showCloudState && isPendingCloud)
+              Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.secondary,
@@ -170,8 +182,25 @@ class _PartyCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-              )
-            : const SizedBox.shrink(),
+              ),
+            if (showCloudState && isPendingCloud && isExpired) const SizedBox(width: 6),
+            if (isExpired)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Expired',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+          ],
+        ),
       ),
       Positioned(
         right: 6,
