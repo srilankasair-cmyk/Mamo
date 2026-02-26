@@ -143,14 +143,33 @@ class PartyStore extends ChangeNotifier {
     notifyListeners();
 
     _subscription = _partiesCollection!.snapshots().listen((snapshot) async {
-      parties = snapshot.docs.map((d) {
+      final localBeforeSync = List<Party>.from(parties);
+      final remoteParties = snapshot.docs.map((d) {
         final map = d.data();
         map['id'] = (map['id'] as String?) ?? d.id;
         return Party.fromJson(map);
-      }).toList()
-        ..sort((a, b) => a.time.compareTo(b.time));
+      }).toList();
 
-      lastSyncError = null;
+      final merged = <Party>[...remoteParties];
+      var recoveredLocalCount = 0;
+
+      for (final localParty in localBeforeSync) {
+        final existsInRemote = remoteParties.any((remoteParty) => remoteParty.id == localParty.id);
+        if (!existsInRemote) {
+          merged.add(localParty);
+          recoveredLocalCount += 1;
+          unawaited(_syncPartyToRemoteInBackground(localParty));
+        }
+      }
+
+      merged.sort((a, b) => a.time.compareTo(b.time));
+      parties = merged;
+
+      if (recoveredLocalCount > 0) {
+        lastSyncError = 'Recovered $recoveredLocalCount local item(s) and retrying cloud sync.${_projectHint()}';
+      } else {
+        lastSyncError = null;
+      }
       isSyncing = false;
 
       await _saveLocal(notify: false);
