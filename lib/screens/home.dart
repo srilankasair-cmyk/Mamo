@@ -30,6 +30,30 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
+        if (store.cloudEnabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: store.isCloudTesting
+                    ? null
+                    : () async {
+                        final message = await store.testCloudConnection();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                      },
+                icon: store.isCloudTesting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_done_outlined),
+                label: Text(store.isCloudTesting ? 'Testing...' : 'Test Cloud'),
+              ),
+            ),
+          ),
         if (!store.cloudEnabled || store.lastSyncError != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),

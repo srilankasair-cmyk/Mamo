@@ -17,6 +17,7 @@ class PartyStore extends ChangeNotifier {
   String? lastSyncError;
   bool isInitialLoading = false;
   bool isSyncing = false;
+  bool isCloudTesting = false;
   bool isActionLoading = false;
   String? loadingAction;
   String? get cloudProjectId => firestore?.app.options.projectId;
@@ -99,6 +100,28 @@ class PartyStore extends ChangeNotifier {
     await _loadRemote();
     await _saveLocal(notify: false);
     notifyListeners();
+  }
+
+  Future<String> testCloudConnection() async {
+    if (_partiesCollection == null) {
+      return 'Cloud sync is disabled (Firebase not configured).';
+    }
+
+    isCloudTesting = true;
+    notifyListeners();
+    try {
+      await _partiesCollection!.limit(1).get().timeout(_cloudTimeout);
+      return 'Cloud connection OK${_projectHint()}';
+    } on FirebaseException catch (e) {
+      return 'Cloud test failed (${e.code})${_projectHint()}';
+    } on TimeoutException {
+      return 'Cloud test timed out. Check network access to Firestore.${_projectHint()}';
+    } catch (e) {
+      return 'Cloud test failed: $e';
+    } finally {
+      isCloudTesting = false;
+      notifyListeners();
+    }
   }
 
   Future<T> _runAction<T>(String action, Future<T> Function() task) async {
