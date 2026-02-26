@@ -178,7 +178,12 @@ class PartyStore extends ChangeNotifier {
 
   Future<bool> addParty(Party p) async {
     return _runAction('publish', () async {
-      parties.add(p);
+      final i = parties.indexWhere((item) => item.id == p.id);
+      if (i == -1) {
+        parties.add(p);
+      } else {
+        parties[i] = p;
+      }
       await _saveLocal();
       unawaited(_syncPartyToRemoteInBackground(p));
       return true;

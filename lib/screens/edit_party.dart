@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:uuid/uuid.dart';
 import '../models.dart';
 import '../store.dart';
 
@@ -23,6 +24,7 @@ class EditPartyScreen extends StatefulWidget {
 class _EditPartyScreenState extends State<EditPartyScreen> {
   final _form = GlobalKey<FormState>();
   bool _isSubmitting = false;
+  late final String _newPartyId;
   late String _title;
   late DateTime _time;
   double _fee = 0;
@@ -34,6 +36,7 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
   @override
   void initState() {
     super.initState();
+    _newPartyId = const Uuid().v4();
     if (widget.args?.party != null) {
       final p = widget.args!.party;
       _title = p.title;
@@ -234,11 +237,13 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () async {
-                          if (_isSubmitting) return;
+                        onPressed: _isSubmitting
+                            ? null
+                            : () async {
                           if (!_form.currentState!.validate()) return;
                           _form.currentState!.save();
                           final messenger = ScaffoldMessenger.of(context);
+                          var operationOk = true;
                           bool synced = true;
                           setState(() => _isSubmitting = true);
                           try {
@@ -247,16 +252,22 @@ class _EditPartyScreenState extends State<EditPartyScreen> {
                               final updated = Party(id: old.id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64, registrations: old.registrations);
                               synced = await store.updateParty(updated);
                             } else {
-                              final id = store.nextId();
-                              final created = Party(id: id, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64);
+                              final created = Party(id: _newPartyId, title: _title, time: _time, fee: _fee, limit: _limit, description: _description, location: _location, posterBase64: _posterBase64);
                               synced = await store.addParty(created);
                             }
+                            operationOk = synced;
+                          } catch (_) {
+                            operationOk = false;
                           } finally {
                             if (mounted) {
                               setState(() => _isSubmitting = false);
                             }
                           }
                           if (!context.mounted) return;
+                          if (!operationOk) {
+                            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                            return;
+                          }
                           if (store.cloudEnabled && !synced) {
                             messenger.showSnackBar(const SnackBar(content: Text('Saved locally, but cloud sync failed. Check Firestore rules/config.')));
                           }
