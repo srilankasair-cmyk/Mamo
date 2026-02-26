@@ -118,22 +118,24 @@ class _RootScaffoldState extends State<RootScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const SizedBox.shrink(),
+      body: SafeArea(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final maxWidth = 900.0;
+          final content = ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: pages[_index],
+          );
+          if (constraints.maxWidth > 900) {
+            return Center(child: Padding(padding: const EdgeInsets.all(16), child: content));
+          }
+          return Padding(padding: const EdgeInsets.all(8), child: content);
+        }),
       ),
-      body: LayoutBuilder(builder: (context, constraints) {
-        final maxWidth = 900.0;
-        final content = ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: pages[_index],
-        );
-        if (constraints.maxWidth > 900) {
-          return Center(child: Padding(padding: const EdgeInsets.all(16), child: content));
-        }
-        return Padding(padding: const EdgeInsets.all(8), child: content);
-      }),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: null),
+        tooltip: 'Create',
+        child: const Icon(Icons.add),
+      ),
       bottomNavigationBar: pages.length > 1
           ? BottomNavigationBar(
               currentIndex: _index,

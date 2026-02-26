@@ -106,17 +106,6 @@ class HomeScreen extends StatelessWidget {
             );
           }),
         ),
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-            child: Align(
-            alignment: Alignment.bottomRight,
-            child: FloatingActionButton(
-              onPressed: () => Navigator.pushNamed(context, EditPartyScreen.routeName, arguments: null),
-              tooltip: 'Create',
-              child: const Icon(Icons.add),
-            ),
-          ),
-        )
       ]);
     });
   }
