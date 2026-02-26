@@ -21,6 +21,14 @@ class PartyStore extends ChangeNotifier {
   String? loadingAction;
   String? get cloudProjectId => firestore?.app.options.projectId;
 
+  String _projectHint() {
+    final id = (cloudProjectId ?? '').trim();
+    if (id.isNotEmpty) {
+      return ' (project: $id)';
+    }
+    return '';
+  }
+
   PartyStore._(this.prefs, this.firestore);
 
   static Future<PartyStore> create() async {
@@ -76,7 +84,7 @@ class PartyStore extends ChangeNotifier {
       lastSyncError = 'Cloud read failed (${e.code}). Check Firestore rules and project config.';
     } catch (e) {
       if (e is TimeoutException) {
-        lastSyncError = 'Cloud sync is slow. Retrying in background.';
+        lastSyncError = 'Cloud sync timed out. Retrying in background. Check network access to Firestore.${_projectHint()}';
       } else {
         lastSyncError = 'Cloud read failed: $e';
       }
@@ -148,7 +156,7 @@ class PartyStore extends ChangeNotifier {
       return false;
     } catch (e) {
       if (e is TimeoutException) {
-        lastSyncError = 'Cloud write is slow. Retrying in background.';
+        lastSyncError = 'Cloud write timed out. Retrying in background. Check network access to Firestore.${_projectHint()}';
       } else {
         lastSyncError = 'Cloud write failed: $e';
       }
@@ -170,7 +178,7 @@ class PartyStore extends ChangeNotifier {
       return false;
     } catch (e) {
       if (e is TimeoutException) {
-        lastSyncError = 'Cloud delete is slow. Retrying in background.';
+        lastSyncError = 'Cloud delete timed out. Retrying in background. Check network access to Firestore.${_projectHint()}';
       } else {
         lastSyncError = 'Cloud delete failed: $e';
       }
